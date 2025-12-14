@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HonseFarm Federation Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#0b1220; --card:#0f1a33; --border:#1f2a44; --muted:#9fb1d1; --text:#e7eefc; --link:#7cc0ff; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    body.detail-open { overflow:hidden; }
+    header { padding: 18px 22px; border-bottom: 1px solid var(--border); background: #060b16; }
+    h1 { margin: 0; font-size: 18px; }
+    .sub { margin-top: 6px; color: var(--muted); font-size: 13px; display:flex; gap:12px; flex-wrap:wrap; }
+    main { padding: 18px 22px 28px; }
+    .pill { display:flex; align-items:flex-start; gap:6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); flex-wrap:wrap; white-space:normal; max-width:min(100%, 460px); min-width: 180px; }
+    .pill code { display:block; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:100%; }
+    .pill a { color: var(--link); word-break:break-word; }
+    .error { margin: 12px 0 0; color: #ffb4b4; font-size: 13px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); cursor:pointer; transition: border-color 0.2s ease, transform 0.2s ease; min-height: 220px; }
+    .card:hover, .card:focus-visible { border-color:#4c6dd8; transform: translateY(-2px); outline:none; }
+    .top { display:flex; justify-content:space-between; gap:12px; }
+    .id { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #a8b8ff; font-weight: 700; }
+    .name { font-size: 16px; font-weight: 700; margin-top: 2px; }
+    .type { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid #2d5a8a; color: #cfeaff; white-space:nowrap; height: fit-content; }
+    .desc { margin-top: 10px; color: #d8e3ff; font-size: 13px; line-height: 1.35; }
+    .host { margin-top: 10px; font-size: 13px; word-break: break-all; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { margin-top: 10px; color: var(--muted); font-size: 12px; display:flex; gap:10px; flex-wrap:wrap; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #c7d6ff; }
+    footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
+    .detail-overlay { position:fixed; inset:0; z-index:50; display:flex; align-items:flex-end; justify-content:center; background:rgba(4,7,13,0.76); backdrop-filter: blur(4px); padding: 32px 18px; }
+    .detail-overlay[hidden] { display:none; }
+    .detail-drawer { width: min(960px, 100%); background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; box-shadow: 0 30px 80px rgba(0,0,0,0.45); position:relative; max-height: calc(100vh - 64px); overflow-y:auto; }
+    .detail-close { position:absolute; top:16px; right:16px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+    .detail-head { display:flex; justify-content:space-between; gap:14px; margin-bottom:12px; flex-wrap:wrap; }
+    .detail-meta { margin-top: 10px; font-size: 13px; color: var(--muted); display:flex; gap:12px; flex-wrap:wrap; }
+    .endpoint-section { margin-top:20px; }
+    .endpoint-list { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+    .endpoint-row { border:1px solid var(--border); border-radius:12px; padding:12px; background:rgba(255,255,255,0.02); display:flex; flex-direction:column; gap:6px; }
+    .endpoint-row-header { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; }
+    .endpoint-method { font-size:11px; text-transform:uppercase; font-weight:700; color:#0b1220; padding:2px 8px; border-radius:999px; background:#7cc0ff; }
+    .endpoint-path { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; color:#e7eefc; word-break:break-all; }
+    .status-badge { font-size:12px; border-radius:8px; padding:3px 8px; font-weight:600; }
+    .status-ok { background:rgba(46, 204, 113, 0.2); color:#7cd992; }
+    .status-warn { background:rgba(241,196,15,0.2); color:#f1c40f; }
+    .status-fail { background:rgba(231,76,60,0.2); color:#ff9c8e; }
+    .status-unknown { background:rgba(255,255,255,0.08); color:var(--muted); }
+    .endpoint-desc { font-size:12px; color:var(--muted); line-height:1.4; }
+    .tag { font-size:11px; border:1px solid var(--border); border-radius:999px; padding:2px 8px; margin-left:6px; color:var(--muted); }
+    .endpoint-meta { display:flex; gap:8px; align-items:center; font-size:12px; color:var(--muted); }
+    .endpoint-empty { font-size:13px; color:var(--muted); margin-top:8px; }
+    .endpoint-link { color:var(--link); font-size:12px; word-break:break-all; }
+    .detail-backdrop { position:absolute; inset:0; }
+  </style>
+</head>
+<body>
+  {% set status_labels = {0: "Online", 1: "Offline", 2: "Banned", 3: "Decommissioned"} %}
+  <header>
+    <h1>HonseFarm Federation Viewer</h1>
+    <div class="sub">
+      <span class="pill">TXT: <code>{{ dns_name }}</code></span>
+      <span class="pill">Bootstraps: <code>{% if bootstraps and bootstraps|length > 0 %}{{ bootstraps|join(", ") }}{% else %}(none found yet){% endif %}</code></span>
+      <span class="pill">Last refresh: <code>{% if last_refresh %}{{ last_refresh }}{% else %}(never){% endif %}</code></span>
+      <span class="pill">Servers: <code>{{ servers|length }}</code></span>
+      <span class="pill">Online (public): <code>{{ total_online }}</code></span>
+      <span class="pill">JSON API: <a href="/api/servers"><code>/api/servers</code></a></span>
+    </div>
+    {% if last_error %}
+      <div class="error">Last error: {{ last_error }}</div>
+    {% endif %}
+  </header>
+
+  <main>
+    <div class="grid">
+      {% for s in servers %}
+        <div class="card" data-server-index="{{ loop.index0 }}" role="button" tabindex="0" aria-pressed="false">
+          <div class="top">
+            <div>
+              <div class="id">{{ s.get("serverId","") }}</div>
+              <div class="name">{{ s.get("name","") }}</div>
+            </div>
+            <div class="type">
+              {% if s.get("serverType") == 0 %}
+                Public
+              {% elif s.get("serverType") == 1 %}
+                Private / Listed
+              {% else %}
+                Type {{ s.get("serverType") }}
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="desc">{{ s.get("description","") }}</div>
+
+          <div class="host">
+            <a href="{{ s.get('hostname','') }}" target="_blank" rel="noreferrer">{{ s.get("hostname","") }}</a>
+          </div>
+
+          <div class="meta">
+            <span>bootstrap: <code>{{ s.get("_bootstrap","") }}</code></span>
+            <span>discord: <code>{{ s.get("discordLink","-") or "-" }}</code></span>
+            <span>online: <code>{{ s.get("usersOnlineCount", 0) }}</code></span>
+            {% if s.get("version") %}
+              <span>version: <code>{{ s.get("version") }}</code></span>
+            {% endif %}
+            {% if s.get("status") is not none %}
+              <span>status: <code>{{ status_labels.get(s.get("status"), "Unknown") }}</code></span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <footer>
+      Tip: set <code>DNS_SERVERS</code> to force resolvers (e.g. <code>1.1.1.1,8.8.8.8</code>) if DNS in a container is weird.
+      You can also set <code>BOOTSTRAP_URLS</code> to skip TXT lookup for debugging.
+    </footer>
+  </main>
+
+  <div class="detail-overlay" id="detail-panel" hidden>
+    <div class="detail-backdrop" data-close></div>
+    <div class="detail-drawer">
+      <button class="detail-close" type="button" data-close>&times;</button>
+      <div class="detail-head">
+        <div>
+          <div class="id" id="detail-id"></div>
+          <div class="name" id="detail-name"></div>
+        </div>
+        <div class="type" id="detail-type"></div>
+      </div>
+      <div class="desc" id="detail-desc"></div>
+      <div class="detail-meta">
+        <span>Host: <a id="detail-host" target="_blank" rel="noreferrer noopener"></a></span>
+        <span>Discord: <a id="detail-discord" target="_blank" rel="noreferrer noopener"></a></span>
+        <span>Endpoints: <code id="detail-endpoint-count"></code></span>
+      </div>
+      <div class="detail-meta">
+        <span>Online: <code id="detail-online"></code></span>
+        <span>Status: <span id="detail-status" class="status-badge status-unknown">Unknown</span></span>
+        <span>Version: <code id="detail-version"></code></span>
+        <span>Last seen: <code id="detail-last-seen"></code></span>
+      </div>
+      <div class="endpoint-section">
+        <h3>Endpoint stats</h3>
+        <div id="endpoint-empty" class="endpoint-empty" hidden>No endpoint data yet.</div>
+        <div id="endpoint-list" class="endpoint-list"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const serverData = {{ servers|tojson }};
+    const detailOverlay = document.getElementById('detail-panel');
+    const STATUS_LABELS = {
+      0: 'Online',
+      1: 'Offline',
+      2: 'Banned',
+      3: 'Decommissioned',
+    };
+    const endpointListEl = document.getElementById('endpoint-list');
+    const endpointEmptyEl = document.getElementById('endpoint-empty');
+    const detailFields = {
+      id: document.getElementById('detail-id'),
+      name: document.getElementById('detail-name'),
+      desc: document.getElementById('detail-desc'),
+      type: document.getElementById('detail-type'),
+      host: document.getElementById('detail-host'),
+      discord: document.getElementById('detail-discord'),
+      endpointCount: document.getElementById('detail-endpoint-count'),
+      online: document.getElementById('detail-online'),
+      status: document.getElementById('detail-status'),
+      version: document.getElementById('detail-version'),
+      lastSeen: document.getElementById('detail-last-seen')
+    };
+
+    function formatServerType(value) {
+      if (value === 0 || value === 'Public') return 'Public';
+      if (value === 1 || value === 'PrivateListed' || value === 'Private / Listed') return 'Private / Listed';
+      if (value === 2 || value === 'PrivateUnlisted') return 'Private / Unlisted';
+      return `Type ${value ?? ''}`.trim();
+    }
+
+    function formatServerStatus(value) {
+      if (value === null || value === undefined || value === '') return 'Unknown';
+      const numeric = Number(value);
+      if (!Number.isNaN(numeric) && STATUS_LABELS.hasOwnProperty(numeric)) {
+        return STATUS_LABELS[numeric];
+      }
+      return `${value}`;
+    }
+
+    function statusBadgeClass(value) {
+      const numeric = Number(value);
+      if (numeric === 0) return 'status-ok';
+      if (numeric === 1) return 'status-warn';
+      if (numeric === 2) return 'status-fail';
+      if (numeric === 3) return 'status-warn';
+      return 'status-unknown';
+    }
+
+    function formatLastSeen(value) {
+      if (!value) return 'Unknown';
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleString();
+      }
+      return value;
+    }
+
+    function normalizeLink(url) {
+      if (!url) return '';
+      return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    }
+
+    function openServerDetail(index) {
+      const server = serverData[index];
+      if (!server) return;
+
+      detailFields.id.textContent = server.serverId || '(no id)';
+      detailFields.name.textContent = server.name || '(unnamed server)';
+      detailFields.desc.textContent = server.description || 'No description provided.';
+      detailFields.type.textContent = formatServerType(server.serverType);
+
+      const host = server.hostname || '';
+      if (host) {
+        detailFields.host.textContent = host;
+        detailFields.host.href = normalizeLink(host);
+      } else {
+        detailFields.host.textContent = '(missing hostname)';
+        detailFields.host.removeAttribute('href');
+      }
+
+      const discord = server.discordLink || '';
+      if (discord) {
+        detailFields.discord.textContent = discord;
+        detailFields.discord.href = normalizeLink(discord);
+      } else {
+        detailFields.discord.textContent = '(none listed)';
+        detailFields.discord.removeAttribute('href');
+      }
+
+      renderEndpointList(server._endpoint_stats || []);
+      detailFields.endpointCount.textContent = (server._endpoint_stats || []).length;
+      const onlineCountRaw = server.usersOnlineCount;
+      const onlineCount = typeof onlineCountRaw === 'number'
+        ? onlineCountRaw
+        : Number(onlineCountRaw) || 0;
+      detailFields.online.textContent = onlineCount.toString();
+      const statusLabel = formatServerStatus(server.status);
+      detailFields.status.textContent = statusLabel;
+      detailFields.status.className = `status-badge ${statusBadgeClass(server.status)}`;
+      detailFields.version.textContent = server.version || '(unknown)';
+      detailFields.lastSeen.textContent = formatLastSeen(server.lastSeen);
+
+      detailOverlay.hidden = false;
+      document.body.classList.add('detail-open');
+    }
+
+    function closeServerDetail() {
+      detailOverlay.hidden = true;
+      document.body.classList.remove('detail-open');
+    }
+
+    function renderEndpointList(endpoints) {
+      endpointListEl.innerHTML = '';
+      if (!endpoints.length) {
+        endpointEmptyEl.hidden = false;
+        return;
+      }
+      endpointEmptyEl.hidden = true;
+
+      endpoints.forEach((ep) => {
+        const statusValue = typeof ep.status === 'number' ? ep.status : null;
+        let statusClass = 'status-unknown';
+        if (statusValue !== null) {
+          if (statusValue < 400) {
+            statusClass = 'status-ok';
+          } else if (statusValue < 500) {
+            statusClass = 'status-warn';
+          } else {
+            statusClass = 'status-fail';
+          }
+        } else if (ep.error) {
+          statusClass = 'status-fail';
+        }
+
+        const latencyLabel = ep.latency_ms ? `${ep.latency_ms} ms` : '—';
+        const statusLabel = statusValue !== null ? statusValue : (ep.error ? 'ERR' : 'N/A');
+
+        const row = document.createElement('div');
+        row.className = 'endpoint-row';
+        row.innerHTML = `
+          <div class="endpoint-row-header">
+            <div class="endpoint-method">${ep.method}</div>
+            <span class="endpoint-path">${ep.path}</span>
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+          </div>
+          <div class="endpoint-meta">
+            <span>${latencyLabel}</span>
+            ${ep.url ? `<a class="endpoint-link" href="${ep.url}" target="_blank" rel="noreferrer noopener">Open</a>` : ''}
+          </div>
+          <div class="endpoint-desc">
+            ${ep.description || ''}
+            ${ep.requires_auth ? '<span class="tag">auth required</span>' : ''}
+            ${ep.notes ? `<span class="tag">${ep.notes}</span>` : ''}
+            ${ep.error ? `<span class="tag">error: ${ep.error}</span>` : ''}
+          </div>
+        `;
+        endpointListEl.appendChild(row);
+      });
+    }
+
+    document.querySelectorAll('.card').forEach((card) => {
+      card.addEventListener('click', () => openServerDetail(Number(card.dataset.serverIndex)));
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openServerDetail(Number(card.dataset.serverIndex));
+        }
+      });
+    });
+
+    detailOverlay.addEventListener('click', (event) => {
+      if (event.target.matches('[data-close]')) {
+        closeServerDetail();
+      }
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !detailOverlay.hidden) {
+        closeServerDetail();
+      }
+    });
+  </script>
+</body>
+</html>
