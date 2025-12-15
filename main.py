@@ -3,6 +3,7 @@ import os
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from urllib.parse import urljoin
 
@@ -28,8 +29,12 @@ _state: Dict[str, Any] = {
     "bootstraps": [],
     "last_error": None,
     "last_refresh": None,
+    "last_refresh_human": None,
     "dns_name": BOOTSTRAP_DNS_NAME,
     "total_online": 0,
+    "server_count_total": 0,
+    "server_count_hidden": 0,
+    "server_count_visible": 0,
 }
 
 URL_RE = re.compile(r"https://[^\s\"']+")
@@ -327,6 +332,29 @@ def _gather_endpoint_stats(server: Dict[str, Any]) -> List[Dict[str, Any]]:
     return stats
 
 
+def _is_private_unlisted(server: Dict[str, Any]) -> bool:
+    st = server.get("serverType")
+    if st is None:
+        return False
+    if isinstance(st, str):
+        lowered = st.lower()
+        return lowered in {"privateunlisted", "private_unlisted", "private-unlisted"}
+    try:
+        return int(st) == 2
+    except Exception:
+        return False
+
+
+def _humanize_timestamp(ts: int | None) -> str | None:
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+    except Exception:
+        return None
+
+
 def _resolver() -> dns.resolver.Resolver:
     r = dns.resolver.Resolver(configure=True)
     if DNS_SERVERS:
@@ -440,6 +468,8 @@ def refresh_once() -> None:
     bootstraps = resolve_bootstrap_urls(BOOTSTRAP_DNS_NAME)
     servers: List[Dict[str, Any]] = []
     details_by_server: Dict[str, Dict[str, Any]] = {}
+    hidden_servers: List[Dict[str, Any]] = []
+    hidden_seen = set()
 
     for b in bootstraps:
         for s in fetch_server_summaries(b):
@@ -449,6 +479,11 @@ def refresh_once() -> None:
         detail_url = servers_url_from_summary(b)
         for detail in fetch_server_details(detail_url):
             sid = detail.get("serverId")
+            if _is_private_unlisted(detail):
+                key = detail.get("serverId") or detail.get("hostname") or str(detail)
+                if key not in hidden_seen:
+                    hidden_servers.append(detail)
+                    hidden_seen.add(key)
             if not sid:
                 continue
             if sid not in details_by_server:
@@ -482,10 +517,15 @@ def refresh_once() -> None:
 
     _state["servers"] = deduped
     _state["bootstraps"] = bootstraps
-    _state["last_refresh"] = int(time.time())
-    _state["total_online"] = sum(
-        int(s.get("usersOnlineCount") or 0) for s in deduped
-    )
+    now_ts = int(time.time())
+    _state["last_refresh"] = now_ts
+    _state["last_refresh_human"] = _humanize_timestamp(now_ts)
+    visible_online = sum(int(s.get("usersOnlineCount") or 0) for s in deduped)
+    hidden_online = sum(int(h.get("usersOnlineCount") or 0) for h in hidden_servers)
+    _state["total_online"] = visible_online + hidden_online
+    _state["server_count_visible"] = len(deduped)
+    _state["server_count_hidden"] = len(hidden_servers)
+    _state["server_count_total"] = len(deduped) + len(hidden_servers)
 
 
 def refresher_loop() -> None:

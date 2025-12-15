@@ -15,6 +15,8 @@
     .pill { display:flex; align-items:flex-start; gap:6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); flex-wrap:wrap; white-space:normal; max-width:min(100%, 460px); min-width: 180px; }
     .pill code { display:block; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:100%; }
     .pill a { color: var(--link); word-break:break-word; }
+    .pill-info { min-width: 0; cursor: help; align-items:center; }
+    .pill-info span { white-space:nowrap; }
     .error { margin: 12px 0 0; color: #ffb4b4; font-size: 13px; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 16px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); cursor:pointer; transition: border-color 0.2s ease, transform 0.2s ease; min-height: 220px; }
@@ -60,12 +62,16 @@
   <header>
     <h1>HonseFarm Federation Viewer</h1>
     <div class="sub">
-      <span class="pill">TXT: <code>{{ dns_name }}</code></span>
-      <span class="pill">Bootstraps: <code>{% if bootstraps and bootstraps|length > 0 %}{{ bootstraps|join(", ") }}{% else %}(none found yet){% endif %}</code></span>
-      <span class="pill">Last refresh: <code>{% if last_refresh %}{{ last_refresh }}{% else %}(never){% endif %}</code></span>
-      <span class="pill">Servers: <code>{{ servers|length }}</code></span>
-      <span class="pill">Online (public): <code>{{ total_online }}</code></span>
-      <span class="pill">JSON API: <a href="/api/servers"><code>/api/servers</code></a></span>
+      <span class="pill">Last refresh: <code>{% if last_refresh_human %}{{ last_refresh_human }}{% else %}(never){% endif %}</code></span>
+      <span class="pill" title="Visible: {{ server_count_visible }} | Hidden: {{ server_count_hidden }}">
+        Servers: <code>{{ server_count_total }}</code>
+      </span>
+      <span class="pill">Online (known): <code>{{ total_online }}</code></span>
+      <span class="pill pill-info"
+            title="TXT lookup: {{ dns_name }}&#10;Bootstraps: {% if bootstraps and bootstraps|length > 0 %}{{ bootstraps|join(' | ') }}{% else %}(none yet){% endif %}&#10;JSON API: /api/servers">
+        <span aria-hidden="true">ℹ︎</span>
+        <span>Lookup details</span>
+      </span>
     </div>
     {% if last_error %}
       <div class="error">Last error: {{ last_error }}</div>
